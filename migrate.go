@@ -1,5 +1,3 @@
-// Package migrate is imported by other Go code.
-// It is the entry point to all migration functions.
 package migrate
 
 import (
@@ -12,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gemnasium/migrate/driver"
-	"github.com/gemnasium/migrate/file"
-	"github.com/gemnasium/migrate/migrate/direction"
-	pipep "github.com/gemnasium/migrate/pipe"
+	"github.com/db-journey/migrate/direction"
+	"github.com/db-journey/migrate/driver"
+	"github.com/db-journey/migrate/file"
+	pipep "github.com/db-journey/migrate/pipe"
 )
 
 // Up applies all available migrations.

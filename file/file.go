@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gemnasium/migrate/migrate/direction"
+	"github.com/db-journey/migrate/direction"
 )
 
 var filenameRegex = `^([0-9]+)_(.*)\.(up|down)\.%s$`
