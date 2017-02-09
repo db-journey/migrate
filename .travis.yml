@@ -5,7 +5,7 @@ go:
   - 1.6
   - 1.7
 
-go_import_path: github.com/gemnasium/migrate
+go_import_path: github.com/db-journey/migrate
 
 services:
   - docker

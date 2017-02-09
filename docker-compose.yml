@@ -1,6 +1,6 @@
 go: &go
   image: golang
-  working_dir: /go/src/github.com/gemnasium/migrate
+  working_dir: /go/src/github.com/db-journey/migrate
   volumes:
     - $GOPATH:/go
 go-test:
