@@ -35,6 +35,9 @@ type Driver interface {
 
 	// Versions returns the list of applied migrations.
 	Versions() (file.Versions, error)
+
+	// Execute a statement
+	Execute(statement string) error
 }
 
 // New returns Driver and calls Initialize on it.

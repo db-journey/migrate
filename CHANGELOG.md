@@ -1,10 +1,12 @@
 # Migrate Changelog
 
-## master
+## 1.4.3
 
-- [postgresql] Avoid DDL when checking for versions table (#23)
-- [postgresql] Start switching to sqlx to write cleaner code
-- [postgresql] Transactions can be disabled per migration file
+- Add an `Execute` command to the driver Interface
+
+## 1.4.2
+
+- Split drivers in their own repos
 
 ## v1.4.1 - 2016-12-16
 
