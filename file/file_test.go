@@ -21,6 +21,7 @@ func TestParseFilenameSchema(t *testing.T) {
 		{"001_test_file.up.sql", "sql", 1, "test_file", direction.Up, false},
 		{"001_test_file.down.sql", "sql", 1, "test_file", direction.Down, false},
 		{"10034_test_file.down.sql", "sql", 10034, "test_file", direction.Down, false},
+		{"10034_test_file.down.sql.tpl", "sql", 10034, "test_file", direction.Down, false},
 		{"-1_test_file.down.sql", "sql", 0, "", direction.Up, true},
 		{"test_file.down.sql", "sql", 0, "", direction.Up, true},
 		{"100_test_file.down", "sql", 0, "", direction.Up, true},
@@ -78,6 +79,8 @@ func TestFiles(t *testing.T) {
 
 	ioutil.WriteFile(path.Join(tmpdir, "401_migrationfile.down.sql"), []byte("test"), 0755)
 
+	ioutil.WriteFile(path.Join(tmpdir, "501_with_template.up.sql.tpl"), []byte("{{.TEST}}"), 0755)
+
 	files, err := ReadMigrationFiles(tmpdir, FilenameRegex("sql"))
 	if err != nil {
 		t.Fatal(err)
@@ -87,8 +90,8 @@ func TestFiles(t *testing.T) {
 		t.Fatal("No files returned.")
 	}
 
-	if len(files) != 5 {
-		t.Fatal("Wrong number of files returned.")
+	if len(files) != 6 {
+		t.Fatalf("Wrong number of files returned (%d).", len(files))
 	}
 
 	// test sort order
@@ -134,6 +137,7 @@ func TestFiles(t *testing.T) {
 	}
 
 	// test read
+	os.Setenv("TEST", "test")
 	if err := files[4].DownFile.ReadContent(); err != nil {
 		t.Error("Unable to read file", err)
 	}
@@ -142,6 +146,16 @@ func TestFiles(t *testing.T) {
 	}
 	if string(files[4].DownFile.Content) != "test" {
 		t.Fatal("Read content is wrong")
+	}
+
+	if err := files[5].UpFile.ReadContent(); err != nil {
+		t.Error("Unable to read file", err)
+	}
+	if files[5].UpFile.Content == nil {
+		t.Fatal("Read content is nil")
+	}
+	if string(files[5].UpFile.Content) != "test" {
+		t.Fatalf("Read content is wrong (%s)", files[5].UpFile.Content)
 	}
 
 	// test names
@@ -154,19 +168,19 @@ func TestFiles(t *testing.T) {
 
 	// test file.Relative()
 	// there should be the following versions:
-	// 1(up&down), 2(up&down), 101(up&down), 301(up), 401(down)
+	// 1(up&down), 2(up&down), 101(up&down), 301(up), 401(down), 501(up)
 	var tests = []struct {
 		appliedVersions Versions
 		relative        int
 		expectRange     Versions
 	}{
 		{Versions{}, 2, Versions{1, 2}},
-		{Versions{1}, 4, Versions{2, 101, 301}},
+		{Versions{1}, 4, Versions{2, 101, 301, 501}},
 		{Versions{1}, 0, nil},
 		{Versions{}, 1, Versions{1}},
 		{Versions{}, 0, nil},
 		{Versions{1, 2, 101}, -2, Versions{101, 2}},
-		{Versions{1, 2, 101, 301, 401}, -1, Versions{401}},
+		{Versions{1, 2, 101, 301, 401, 501}, -1, Versions{401}},
 	}
 
 	for _, test := range tests {

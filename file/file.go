@@ -7,16 +7,19 @@ import (
 	"fmt"
 	"go/token"
 	"io/ioutil"
+	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 
+	"github.com/alecthomas/template"
 	"github.com/db-journey/migrate/direction"
 )
 
-var filenameRegex = `^([0-9]+)_(.*)\.(up|down)\.%s$`
+var filenameRegex = `^([0-9]+)_(.*)\.(up|down)\.%s(?:\.tpl)?$`
 
 // FilenameRegex builds regular expression stmt with given
 // filename extension from driver.
@@ -101,9 +104,46 @@ func (f *File) ReadContent() error {
 		if err != nil {
 			return err
 		}
+
+		// if the file is a template (extension = ".tpl"), it will be parsed and executed with the program current env
+		if f.IsTemplate() {
+			tmpl, err := template.New(f.Name).Parse(string(content[:]))
+			if err != nil {
+				return err
+			}
+			getenvironment := func(data []string, getkeyval func(item string) (key, val string)) map[string]string {
+				items := make(map[string]string)
+				for _, item := range data {
+					key, val := getkeyval(item)
+					items[key] = val
+				}
+				return items
+			}
+			environment := getenvironment(os.Environ(), func(item string) (key, val string) {
+				splits := strings.Split(item, "=")
+				key = splits[0]
+				val = splits[1]
+				return
+			})
+
+			var b bytes.Buffer
+			if err := tmpl.ExecuteTemplate(&b, f.Name, environment); err != nil {
+				return err
+			}
+			content = b.Bytes()
+		}
+
 		f.Content = content
 	}
 	return nil
+}
+
+// IsTemplate returns true if the current file is a Template
+func (f *File) IsTemplate() bool {
+	if filepath.Ext(f.FileName) == ".tpl" {
+		return true
+	}
+	return false
 }
 
 // Pending returns the list of pending migration files.

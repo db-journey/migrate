@@ -1,5 +1,9 @@
 # Migrate Changelog
 
+## 1.5.0
+
+- Add templating support in migration files
+
 ## 1.4.3
 
 - Add an `Execute` command to the driver Interface
