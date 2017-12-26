@@ -3,8 +3,6 @@ package migrate
 import (
 	"fmt"
 	"io/ioutil"
-	"os"
-	"os/signal"
 	"path"
 	"strconv"
 	"strings"
@@ -13,173 +11,87 @@ import (
 	"github.com/db-journey/migrate/direction"
 	"github.com/db-journey/migrate/driver"
 	"github.com/db-journey/migrate/file"
-	pipep "github.com/db-journey/migrate/pipe"
 )
 
 // Up applies all available migrations.
-func Up(pipe chan interface{}, url, migrationsPath string) {
+func Up(url, migrationsPath string) error {
 	d, files, versions, err := initDriverAndReadMigrationFilesAndGetVersions(url, migrationsPath)
-	defer func() {
-		if err != nil {
-			pipe <- err
-
-		}
-		if d != nil {
-			if err = d.Close(); err != nil {
-				pipe <- err
-			}
-		}
-		go pipep.Close(pipe, nil)
-	}()
 	if err != nil {
-		return
+		return err
 	}
-
+	defer d.Close()
 	applyMigrationFiles, err := files.Pending(versions)
 	if err != nil {
-		return
+		return err
 	}
-
-	if len(applyMigrationFiles) > 0 {
-		for _, f := range applyMigrationFiles {
-			pipe1 := pipep.New()
-			go d.Migrate(f, pipe1)
-			if ok := pipep.WaitAndRedirect(pipe1, pipe, handleInterrupts()); !ok {
-				break
-			}
+	for _, f := range applyMigrationFiles {
+		err := d.Migrate(f)
+		if err != nil {
+			return err
 		}
 	}
-}
-
-// UpSync is synchronous version of Up().
-func UpSync(url, migrationsPath string) (err []error, ok bool) {
-	pipe := pipep.New()
-	go Up(pipe, url, migrationsPath)
-	err = pipep.ReadErrors(pipe)
-	return err, len(err) == 0
+	return nil
 }
 
 // Down rolls back all migrations.
-func Down(pipe chan interface{}, url, migrationsPath string) {
+func Down(url, migrationsPath string) error {
 	d, files, versions, err := initDriverAndReadMigrationFilesAndGetVersions(url, migrationsPath)
-	defer func() {
-		if err != nil {
-			pipe <- err
-
-		}
-		if d != nil {
-			if err = d.Close(); err != nil {
-				pipe <- err
-			}
-		}
-		go pipep.Close(pipe, nil)
-	}()
 	if err != nil {
-		return
+		return err
 	}
+	defer d.Close()
 
 	applyMigrationFiles, err := files.Applied(versions)
 	if err != nil {
-		return
+		return err
 	}
 
-	if len(applyMigrationFiles) > 0 {
-		for _, f := range applyMigrationFiles {
-			pipe1 := pipep.New()
-			go d.Migrate(f, pipe1)
-			if ok := pipep.WaitAndRedirect(pipe1, pipe, handleInterrupts()); !ok {
-				break
-			}
+	for _, f := range applyMigrationFiles {
+		err = d.Migrate(f)
+		if err != nil {
+			break
 		}
 	}
-}
-
-// DownSync is synchronous version of Down().
-func DownSync(url, migrationsPath string) (err []error, ok bool) {
-	pipe := pipep.New()
-	go Down(pipe, url, migrationsPath)
-	err = pipep.ReadErrors(pipe)
-	return err, len(err) == 0
+	return err
 }
 
 // Redo rolls back the most recently applied migration, then runs it again.
-func Redo(pipe chan interface{}, url, migrationsPath string) {
-	pipe1 := pipep.New()
-	go Migrate(pipe1, url, migrationsPath, -1)
-	if ok := pipep.WaitAndRedirect(pipe1, pipe, handleInterrupts()); !ok {
-		go pipep.Close(pipe, nil)
-		return
+func Redo(url, migrationsPath string) error {
+	err := Migrate(url, migrationsPath, -1)
+	if err != nil {
+		return err
 	}
-	go Migrate(pipe, url, migrationsPath, +1)
-}
-
-// RedoSync is synchronous version of Redo().
-func RedoSync(url, migrationsPath string) (err []error, ok bool) {
-	pipe := pipep.New()
-	go Redo(pipe, url, migrationsPath)
-	err = pipep.ReadErrors(pipe)
-	return err, len(err) == 0
+	return Migrate(url, migrationsPath, +1)
 }
 
 // Reset runs the down and up migration function.
-func Reset(pipe chan interface{}, url, migrationsPath string) {
-	pipe1 := pipep.New()
-	go Down(pipe1, url, migrationsPath)
-	if ok := pipep.WaitAndRedirect(pipe1, pipe, handleInterrupts()); !ok {
-		go pipep.Close(pipe, nil)
-		return
+func Reset(url, migrationsPath string) error {
+	err := Down(url, migrationsPath)
+	if err != nil {
+		return err
 	}
-	go Up(pipe, url, migrationsPath)
-}
-
-// ResetSync is synchronous version of Reset().
-func ResetSync(url, migrationsPath string) (err []error, ok bool) {
-	pipe := pipep.New()
-	go Reset(pipe, url, migrationsPath)
-	err = pipep.ReadErrors(pipe)
-	return err, len(err) == 0
+	return Up(url, migrationsPath)
 }
 
 // Migrate applies relative +n/-n migrations.
-func Migrate(pipe chan interface{}, url, migrationsPath string, relativeN int) {
+func Migrate(url, migrationsPath string, relativeN int) error {
 	d, files, versions, err := initDriverAndReadMigrationFilesAndGetVersions(url, migrationsPath)
-	defer func() {
-		if err != nil {
-			pipe <- err
-		}
-		if d != nil {
-			if err = d.Close(); err != nil {
-				pipe <- err
-			}
-		}
-		go pipep.Close(pipe, nil)
-	}()
 	if err != nil {
-		return
+		return err
 	}
 
 	applyMigrationFiles, err := files.Relative(relativeN, versions)
 	if err != nil {
-		return
+		return err
 	}
 
-	if len(applyMigrationFiles) > 0 && relativeN != 0 {
-		for _, f := range applyMigrationFiles {
-			pipe1 := pipep.New()
-			go d.Migrate(f, pipe1)
-			if ok := pipep.WaitAndRedirect(pipe1, pipe, handleInterrupts()); !ok {
-				break
-			}
+	for _, f := range applyMigrationFiles {
+		err = d.Migrate(f)
+		if err != nil {
+			break
 		}
 	}
-}
-
-// MigrateSync is synchronous version of Migrate().
-func MigrateSync(url, migrationsPath string, relativeN int) (err []error, ok bool) {
-	pipe := pipep.New()
-	go Migrate(pipe, url, migrationsPath, relativeN)
-	err = pipep.ReadErrors(pipe)
-	return err, len(err) == 0
+	return err
 }
 
 // Version returns the current migration version.
@@ -198,6 +110,15 @@ func Versions(url, migrationsPath string) (versions file.Versions, err error) {
 		return file.Versions{}, err
 	}
 	return d.Versions()
+}
+
+// PendingMigrations returns list of pending migration files
+func PendingMigrations(url, migrationsPath string) (file.Files, error) {
+	_, files, versions, err := initDriverAndReadMigrationFilesAndGetVersions(url, migrationsPath)
+	if err != nil {
+		return nil, err
+	}
+	return files.Pending(versions)
 }
 
 // Create creates new migration files on disk.
@@ -228,14 +149,14 @@ func Create(url, migrationsPath, name string) (*file.MigrationFile, error) {
 			Path:      migrationsPath,
 			FileName:  fmt.Sprintf(filenamef, version, name, "up", d.FilenameExtension()),
 			Name:      name,
-			Content:   []byte(""),
+			Content:   d.FileTemplate(),
 			Direction: direction.Up,
 		},
 		DownFile: &file.File{
 			Path:      migrationsPath,
 			FileName:  fmt.Sprintf(filenamef, version, name, "down", d.FilenameExtension()),
 			Name:      name,
-			Content:   []byte(""),
+			Content:   d.FileTemplate(),
 			Direction: direction.Down,
 		},
 	}
@@ -257,53 +178,11 @@ func initDriverAndReadMigrationFilesAndGetVersions(url, migrationsPath string) (
 	if err != nil {
 		return nil, nil, file.Versions{}, err
 	}
+	defer d.Close()
 	files, err := file.ReadMigrationFiles(migrationsPath, file.FilenameRegex(d.FilenameExtension()))
 	if err != nil {
-		d.Close() // TODO what happens with errors from this func?
 		return nil, nil, file.Versions{}, err
 	}
-
 	versions, err := d.Versions()
-	if err != nil {
-		d.Close() // TODO what happens with errors from this func?
-		return nil, nil, file.Versions{}, err
-
-	}
-
-	return d, files, versions, nil
-}
-
-// NewPipe is a convenience function for pipe.New().
-// This is helpful if the user just wants to import this package and nothing else.
-func NewPipe() chan interface{} {
-	return pipep.New()
-}
-
-// interrupts is an internal variable that holds the state of
-// interrupt handling.
-var interrupts = true
-
-// Graceful enables interrupts checking. Once the first ^C is received
-// it will finish the currently running migration and abort execution
-// of the next migration. If ^C is received twice, it will stop
-// execution immediately.
-func Graceful() {
-	interrupts = true
-}
-
-// NonGraceful disables interrupts checking. The first received ^C will
-// stop execution immediately.
-func NonGraceful() {
-	interrupts = false
-}
-
-// interrupts returns a signal channel if interrupts checking is
-// enabled. nil otherwise.
-func handleInterrupts() chan os.Signal {
-	if interrupts {
-		c := make(chan os.Signal, 1)
-		signal.Notify(c, os.Interrupt)
-		return c
-	}
-	return nil
+	return d, files, versions, err
 }
