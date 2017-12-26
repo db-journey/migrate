@@ -76,7 +76,7 @@ func (m *Handle) Redo() error {
 	return m.Migrate(+1)
 }
 
-// Reset runs the down and up migration function.
+// Reset runs the Down and Up migration function.
 func (m *Handle) Reset() error {
 	err := m.Down()
 	if err != nil {
@@ -87,6 +87,8 @@ func (m *Handle) Reset() error {
 
 // Migrate applies relative +n/-n migrations.
 func (m *Handle) Migrate(relativeN int) error {
+	// TODO: add Lock/Unlock methods to Driver interface
+	// for now it's not safe for concurrent execution
 	files, versions, err := m.readMigrationFilesAndGetVersions()
 	if err != nil {
 		return err
