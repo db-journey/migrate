@@ -24,20 +24,21 @@ type Driver interface {
 	// The returned string must not begin with a dot.
 	FilenameExtension() string
 
+	// FileTemplate returns content that will be inserted
+	// into newly created migration source file.
+	FileTemplate() []byte
+
 	// Migrate is the heart of the driver.
 	// It will receive a file which the driver should apply
 	// to its backend or whatever. The migration function should use
 	// the pipe channel to return any errors or other useful information.
-	Migrate(file file.File, pipe chan interface{})
+	Migrate(file file.File) error
 
 	// Version returns the current migration version.
 	Version() (file.Version, error)
 
 	// Versions returns the list of applied migrations.
 	Versions() (file.Versions, error)
-
-	// Execute a statement
-	Execute(statement string) error
 }
 
 // New returns Driver and calls Initialize on it.
