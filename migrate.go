@@ -1,6 +1,7 @@
 package migrate
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"path"
@@ -29,7 +30,7 @@ func New(url, migrationsPath string) (*Handle, error) {
 }
 
 // Up applies all available migrations.
-func (m *Handle) Up() error {
+func (m *Handle) Up(ctx context.Context) error {
 	files, versions, err := m.readMigrationFilesAndGetVersions()
 	if err != nil {
 		return err
@@ -39,7 +40,7 @@ func (m *Handle) Up() error {
 		return err
 	}
 	for _, f := range applyMigrationFiles {
-		err := m.drv.Migrate(f)
+		err = m.drvMigrate(ctx, f)
 		if err != nil {
 			return err
 		}
@@ -48,7 +49,7 @@ func (m *Handle) Up() error {
 }
 
 // Down rolls back all migrations.
-func (m *Handle) Down() error {
+func (m *Handle) Down(ctx context.Context) error {
 	files, versions, err := m.readMigrationFilesAndGetVersions()
 	if err != nil {
 		return err
@@ -59,7 +60,7 @@ func (m *Handle) Down() error {
 	}
 
 	for _, f := range applyMigrationFiles {
-		err = m.drv.Migrate(f)
+		err = m.drvMigrate(ctx, f)
 		if err != nil {
 			break
 		}
@@ -68,25 +69,25 @@ func (m *Handle) Down() error {
 }
 
 // Redo rolls back the most recently applied migration, then runs it again.
-func (m *Handle) Redo() error {
-	err := m.Migrate(-1)
+func (m *Handle) Redo(ctx context.Context) error {
+	err := m.Migrate(ctx, -1)
 	if err != nil {
 		return err
 	}
-	return m.Migrate(+1)
+	return m.Migrate(ctx, +1)
 }
 
 // Reset runs the Down and Up migration function.
-func (m *Handle) Reset() error {
-	err := m.Down()
+func (m *Handle) Reset(ctx context.Context) error {
+	err := m.Down(ctx)
 	if err != nil {
 		return err
 	}
-	return m.Up()
+	return m.Up(ctx)
 }
 
 // Migrate applies relative +n/-n migrations.
-func (m *Handle) Migrate(relativeN int) error {
+func (m *Handle) Migrate(ctx context.Context, relativeN int) error {
 	// TODO: add Lock/Unlock methods to Driver interface
 	// for now it's not safe for concurrent execution
 	files, versions, err := m.readMigrationFilesAndGetVersions()
@@ -100,7 +101,7 @@ func (m *Handle) Migrate(relativeN int) error {
 	}
 
 	for _, f := range applyMigrationFiles {
-		err = m.drv.Migrate(f)
+		err = m.drvMigrate(ctx, f)
 		if err != nil {
 			break
 		}
@@ -180,6 +181,15 @@ func (m *Handle) Create(name string) (*file.MigrationFile, error) {
 // Close database connection
 func (m *Handle) Close() error {
 	return m.drv.Close()
+}
+
+func (m *Handle) drvMigrate(ctx context.Context, f file.File) error {
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("interrupted before applying version %d: %s", f.Version, ctx.Err())
+	default:
+		return m.drv.Migrate(f)
+	}
 }
 
 // initDriverAndReadMigrationFilesAndGetVersionsAndGetVersion is a small helper

@@ -1,6 +1,15 @@
 package migrate
 
-import "github.com/db-journey/migrate/file"
+import (
+	"context"
+	"os"
+	"os/signal"
+
+	"github.com/db-journey/migrate/file"
+)
+
+// XXX: funcs below are unnecessary code duplication
+// also, handling os signals is a responsibility of CLI, not this library.
 
 // Up applies all available migrations.
 // Up is a shortcut for Handle.Up
@@ -10,7 +19,7 @@ func Up(url, migrationsPath string) error {
 		return err
 	}
 	defer m.Close()
-	return m.Up()
+	return m.Up(newOsInterruptCtx())
 }
 
 // Down rolls back all migrations.
@@ -21,7 +30,7 @@ func Down(url, migrationsPath string) error {
 		return err
 	}
 	defer m.Close()
-	return m.Down()
+	return m.Down(newOsInterruptCtx())
 }
 
 // Redo rolls back the most recently applied migration, then runs it again.
@@ -32,7 +41,7 @@ func Redo(url, migrationsPath string) error {
 		return err
 	}
 	defer m.Close()
-	return m.Redo()
+	return m.Redo(newOsInterruptCtx())
 }
 
 // Reset runs the down and up migration function.
@@ -43,7 +52,7 @@ func Reset(url, migrationsPath string) error {
 		return err
 	}
 	defer m.Close()
-	return m.Reset()
+	return m.Reset(newOsInterruptCtx())
 }
 
 // Migrate applies relative +n/-n migrations.
@@ -54,7 +63,7 @@ func Migrate(url, migrationsPath string, relativeN int) error {
 		return err
 	}
 	defer m.Close()
-	return m.Migrate(relativeN)
+	return m.Migrate(newOsInterruptCtx(), relativeN)
 }
 
 // Version returns the current migration version.
@@ -99,4 +108,18 @@ func Create(url, migrationsPath, name string) (*file.MigrationFile, error) {
 	}
 	defer m.Close()
 	return m.Create(name)
+}
+
+// newOsInterruptCtx returns new context that will be cancelled
+// on os.Interrupt signal.
+func newOsInterruptCtx() context.Context {
+	ctx, cancel := context.WithCancel(context.Background())
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	go func() {
+		<-c
+		cancel()
+		signal.Stop(c)
+	}()
+	return ctx
 }
