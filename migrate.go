@@ -13,19 +13,33 @@ import (
 	"github.com/db-journey/migrate/file"
 )
 
+// Handle encapsulates migrations functionality
+type Handle struct {
+	drv            driver.Driver
+	migrationsPath string
+}
+
+// New Handle instance
+func New(url, migrationsPath string) (*Handle, error) {
+	d, err := driver.New(url)
+	if err != nil {
+		return nil, err
+	}
+	return &Handle{drv: d, migrationsPath: migrationsPath}, nil
+}
+
 // Up applies all available migrations.
-func Up(url, migrationsPath string) error {
-	d, files, versions, err := initDriverAndReadMigrationFilesAndGetVersions(url, migrationsPath)
+func (m *Handle) Up() error {
+	files, versions, err := m.readMigrationFilesAndGetVersions()
 	if err != nil {
 		return err
 	}
-	defer d.Close()
 	applyMigrationFiles, err := files.Pending(versions)
 	if err != nil {
 		return err
 	}
 	for _, f := range applyMigrationFiles {
-		err := d.Migrate(f)
+		err := m.drv.Migrate(f)
 		if err != nil {
 			return err
 		}
@@ -34,20 +48,18 @@ func Up(url, migrationsPath string) error {
 }
 
 // Down rolls back all migrations.
-func Down(url, migrationsPath string) error {
-	d, files, versions, err := initDriverAndReadMigrationFilesAndGetVersions(url, migrationsPath)
+func (m *Handle) Down() error {
+	files, versions, err := m.readMigrationFilesAndGetVersions()
 	if err != nil {
 		return err
 	}
-	defer d.Close()
-
 	applyMigrationFiles, err := files.Applied(versions)
 	if err != nil {
 		return err
 	}
 
 	for _, f := range applyMigrationFiles {
-		err = d.Migrate(f)
+		err = m.drv.Migrate(f)
 		if err != nil {
 			break
 		}
@@ -56,26 +68,26 @@ func Down(url, migrationsPath string) error {
 }
 
 // Redo rolls back the most recently applied migration, then runs it again.
-func Redo(url, migrationsPath string) error {
-	err := Migrate(url, migrationsPath, -1)
+func (m *Handle) Redo() error {
+	err := m.Migrate(-1)
 	if err != nil {
 		return err
 	}
-	return Migrate(url, migrationsPath, +1)
+	return m.Migrate(+1)
 }
 
 // Reset runs the down and up migration function.
-func Reset(url, migrationsPath string) error {
-	err := Down(url, migrationsPath)
+func (m *Handle) Reset() error {
+	err := m.Down()
 	if err != nil {
 		return err
 	}
-	return Up(url, migrationsPath)
+	return m.Up()
 }
 
 // Migrate applies relative +n/-n migrations.
-func Migrate(url, migrationsPath string, relativeN int) error {
-	d, files, versions, err := initDriverAndReadMigrationFilesAndGetVersions(url, migrationsPath)
+func (m *Handle) Migrate(relativeN int) error {
+	files, versions, err := m.readMigrationFilesAndGetVersions()
 	if err != nil {
 		return err
 	}
@@ -86,7 +98,7 @@ func Migrate(url, migrationsPath string, relativeN int) error {
 	}
 
 	for _, f := range applyMigrationFiles {
-		err = d.Migrate(f)
+		err = m.drv.Migrate(f)
 		if err != nil {
 			break
 		}
@@ -95,26 +107,18 @@ func Migrate(url, migrationsPath string, relativeN int) error {
 }
 
 // Version returns the current migration version.
-func Version(url, migrationsPath string) (version file.Version, err error) {
-	d, err := driver.New(url)
-	if err != nil {
-		return 0, err
-	}
-	return d.Version()
+func (m *Handle) Version() (version file.Version, err error) {
+	return m.drv.Version()
 }
 
 // Versions returns applied versions.
-func Versions(url, migrationsPath string) (versions file.Versions, err error) {
-	d, err := driver.New(url)
-	if err != nil {
-		return file.Versions{}, err
-	}
-	return d.Versions()
+func (m *Handle) Versions() (versions file.Versions, err error) {
+	return m.drv.Versions()
 }
 
 // PendingMigrations returns list of pending migration files
-func PendingMigrations(url, migrationsPath string) (file.Files, error) {
-	_, files, versions, err := initDriverAndReadMigrationFilesAndGetVersions(url, migrationsPath)
+func (m *Handle) PendingMigrations() (file.Files, error) {
+	files, versions, err := m.readMigrationFilesAndGetVersions()
 	if err != nil {
 		return nil, err
 	}
@@ -122,8 +126,8 @@ func PendingMigrations(url, migrationsPath string) (file.Files, error) {
 }
 
 // Create creates new migration files on disk.
-func Create(url, migrationsPath, name string) (*file.MigrationFile, error) {
-	d, files, _, err := initDriverAndReadMigrationFilesAndGetVersions(url, migrationsPath)
+func (m *Handle) Create(name string) (*file.MigrationFile, error) {
+	files, _, err := m.readMigrationFilesAndGetVersions()
 	if err != nil {
 		return nil, err
 	}
@@ -146,17 +150,17 @@ func Create(url, migrationsPath, name string) (*file.MigrationFile, error) {
 	mfile := &file.MigrationFile{
 		Version: version,
 		UpFile: &file.File{
-			Path:      migrationsPath,
-			FileName:  fmt.Sprintf(filenamef, version, name, "up", d.FilenameExtension()),
+			Path:      m.migrationsPath,
+			FileName:  fmt.Sprintf(filenamef, version, name, "up", m.drv.FilenameExtension()),
 			Name:      name,
-			Content:   d.FileTemplate(),
+			Content:   m.drv.FileTemplate(),
 			Direction: direction.Up,
 		},
 		DownFile: &file.File{
-			Path:      migrationsPath,
-			FileName:  fmt.Sprintf(filenamef, version, name, "down", d.FilenameExtension()),
+			Path:      m.migrationsPath,
+			FileName:  fmt.Sprintf(filenamef, version, name, "down", m.drv.FilenameExtension()),
 			Name:      name,
-			Content:   d.FileTemplate(),
+			Content:   m.drv.FileTemplate(),
 			Direction: direction.Down,
 		},
 	}
@@ -171,18 +175,18 @@ func Create(url, migrationsPath, name string) (*file.MigrationFile, error) {
 	return mfile, nil
 }
 
+// Close database connection
+func (m *Handle) Close() error {
+	return m.drv.Close()
+}
+
 // initDriverAndReadMigrationFilesAndGetVersionsAndGetVersion is a small helper
 // function that is common to most of the migration funcs.
-func initDriverAndReadMigrationFilesAndGetVersions(url, migrationsPath string) (driver.Driver, file.MigrationFiles, file.Versions, error) {
-	d, err := driver.New(url)
+func (m *Handle) readMigrationFilesAndGetVersions() (file.MigrationFiles, file.Versions, error) {
+	files, err := file.ReadMigrationFiles(m.migrationsPath, file.FilenameRegex(m.drv.FilenameExtension()))
 	if err != nil {
-		return nil, nil, file.Versions{}, err
+		return nil, file.Versions{}, err
 	}
-	defer d.Close()
-	files, err := file.ReadMigrationFiles(migrationsPath, file.FilenameRegex(d.FilenameExtension()))
-	if err != nil {
-		return nil, nil, file.Versions{}, err
-	}
-	versions, err := d.Versions()
-	return d, files, versions, err
+	versions, err := m.drv.Versions()
+	return files, versions, err
 }
