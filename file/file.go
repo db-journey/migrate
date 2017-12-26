@@ -215,10 +215,9 @@ func ReadMigrationFiles(path string, filenameRegex *regexp.Regexp) (files Migrat
 		filename string
 		d        direction.Direction
 	}
-	tmpFiles := make([]*tmpFile, 0)
+	var tmpFiles []*tmpFile
 	tmpFileMap := map[Version]map[direction.Direction]tmpFile{}
 	for _, file := range ioFiles {
-
 		version, name, d, err := parseFilenameSchema(file.Name(), filenameRegex)
 		if err == nil {
 			if _, ok := tmpFileMap[version]; !ok {

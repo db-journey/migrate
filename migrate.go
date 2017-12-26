@@ -2,6 +2,7 @@ package migrate
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"path"
@@ -14,21 +15,53 @@ import (
 	"github.com/db-journey/migrate/file"
 )
 
+// Option for New
+type Option func(h *Handle) error
+
+// WithHooks allows to add pre/post migration hooks.
+func WithHooks(pre, post func(f file.File) error) Option {
+	return func(h *Handle) error {
+		h.preHook = pre
+		h.postHook = post
+		return nil
+	}
+}
+
 // Handle encapsulates migrations functionality
 type Handle struct {
 	drv            driver.Driver
 	migrationsPath string
 	locked         bool
 	fatalErr       error
+
+	preHook, postHook func(f file.File) error
 }
 
-// New Handle instance
-func New(url, migrationsPath string) (*Handle, error) {
+// Open migrations Handle
+func Open(url, migrationsPath string, opts ...Option) (*Handle, error) {
 	d, err := driver.New(url)
 	if err != nil {
 		return nil, err
 	}
-	return &Handle{drv: d, migrationsPath: migrationsPath}, nil
+	return New(d, migrationsPath, opts...)
+}
+
+// New migrations Handle
+func New(drv driver.Driver, migrationsPath string, opts ...Option) (*Handle, error) {
+	if drv == nil {
+		return nil, errors.New("driver can't be nil")
+	}
+	h := &Handle{
+		drv:            drv,
+		migrationsPath: migrationsPath,
+	}
+	for _, configure := range opts {
+		err := configure(h)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return h, nil
 }
 
 // Up applies all available migrations.
@@ -262,7 +295,15 @@ func (m *Handle) drvMigrate(ctx context.Context, f file.File) error {
 	case <-ctx.Done():
 		return fmt.Errorf("interrupted before applying version %d: %s", f.Version, ctx.Err())
 	default:
-		return m.drv.Migrate(f)
+		err := runHookIfNotNil(m.preHook, "pre", f)
+		if err != nil {
+			return err
+		}
+		err = m.drv.Migrate(f)
+		if err != nil {
+			return err
+		}
+		return runHookIfNotNil(m.postHook, "post", f)
 	}
 }
 
@@ -275,4 +316,15 @@ func (m *Handle) readMigrationFilesAndGetVersions() (file.MigrationFiles, file.V
 	}
 	versions, err := m.drv.Versions()
 	return files, versions, err
+}
+
+func runHookIfNotNil(hook func(f file.File) error, name string, f file.File) error {
+	if hook == nil {
+		return nil
+	}
+	err := hook(f)
+	if err != nil {
+		return fmt.Errorf("%s-hook for migration %q failed: %s", name, f.FileName, err)
+	}
+	return nil
 }
