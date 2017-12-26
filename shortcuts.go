@@ -9,6 +9,7 @@ func Up(url, migrationsPath string) error {
 	if err != nil {
 		return err
 	}
+	defer m.Close()
 	return m.Up()
 }
 
@@ -19,6 +20,7 @@ func Down(url, migrationsPath string) error {
 	if err != nil {
 		return err
 	}
+	defer m.Close()
 	return m.Down()
 }
 
@@ -29,6 +31,7 @@ func Redo(url, migrationsPath string) error {
 	if err != nil {
 		return err
 	}
+	defer m.Close()
 	return m.Redo()
 }
 
@@ -39,6 +42,7 @@ func Reset(url, migrationsPath string) error {
 	if err != nil {
 		return err
 	}
+	defer m.Close()
 	return m.Reset()
 }
 
@@ -49,6 +53,7 @@ func Migrate(url, migrationsPath string, relativeN int) error {
 	if err != nil {
 		return err
 	}
+	defer m.Close()
 	return m.Migrate(relativeN)
 }
 
@@ -59,6 +64,7 @@ func Version(url, migrationsPath string) (file.Version, error) {
 	if err != nil {
 		return 0, err
 	}
+	defer m.Close()
 	return m.Version()
 }
 
@@ -69,6 +75,7 @@ func Versions(url, migrationsPath string) (file.Versions, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer m.Close()
 	return m.Versions()
 }
 
@@ -79,6 +86,7 @@ func PendingMigrations(url, migrationsPath string) (file.Files, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer m.Close()
 	return m.PendingMigrations()
 }
 
@@ -89,5 +97,6 @@ func Create(url, migrationsPath, name string) (*file.MigrationFile, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer m.Close()
 	return m.Create(name)
 }
