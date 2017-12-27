@@ -44,6 +44,31 @@ type Driver interface {
 	Execute(statement string) error
 }
 
+// Lockable represents driver that supports database locking.
+// Implement if possible to make it safe to run migrations concurrently.
+// NOTE: Probably better to move into Driver interface to make sure it's not
+// dismissed when locking is possible to implement.
+type Lockable interface {
+	Lock() error
+	Unlock() error
+}
+
+// Lock calls Lock method if driver implements Lockable
+func Lock(d Driver) error {
+	if d, ok := d.(Lockable); ok {
+		return d.Lock()
+	}
+	return nil
+}
+
+// Unlock calls Unlock method if driver implements Lockable
+func Unlock(d Driver) error {
+	if d, ok := d.(Lockable); ok {
+		return d.Unlock()
+	}
+	return nil
+}
+
 // New returns Driver and calls Initialize on it.
 func New(url string) (Driver, error) {
 	u, err := neturl.Parse(url)

@@ -18,6 +18,8 @@ import (
 type Handle struct {
 	drv            driver.Driver
 	migrationsPath string
+	locked         bool
+	fatalErr       error
 }
 
 // New Handle instance
@@ -31,96 +33,119 @@ func New(url, migrationsPath string) (*Handle, error) {
 
 // Up applies all available migrations.
 func (m *Handle) Up(ctx context.Context) error {
-	files, versions, err := m.readMigrationFilesAndGetVersions()
-	if err != nil {
-		return err
-	}
-	applyMigrationFiles, err := files.Pending(versions)
-	if err != nil {
-		return err
-	}
-	for _, f := range applyMigrationFiles {
-		err = m.drvMigrate(ctx, f)
+	return m.locking(ctx, func() error {
+		files, versions, err := m.readMigrationFilesAndGetVersions()
 		if err != nil {
 			return err
 		}
-	}
-	return nil
+		applyMigrationFiles, err := files.Pending(versions)
+		if err != nil {
+			return err
+		}
+		for _, f := range applyMigrationFiles {
+			err = m.drvMigrate(ctx, f)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // Down rolls back all migrations.
 func (m *Handle) Down(ctx context.Context) error {
-	files, versions, err := m.readMigrationFilesAndGetVersions()
-	if err != nil {
-		return err
-	}
-	applyMigrationFiles, err := files.Applied(versions)
-	if err != nil {
-		return err
-	}
-
-	for _, f := range applyMigrationFiles {
-		err = m.drvMigrate(ctx, f)
+	return m.locking(ctx, func() error {
+		files, versions, err := m.readMigrationFilesAndGetVersions()
 		if err != nil {
-			break
+			return err
 		}
-	}
-	return err
+		applyMigrationFiles, err := files.Applied(versions)
+		if err != nil {
+			return err
+		}
+
+		for _, f := range applyMigrationFiles {
+			err = m.drvMigrate(ctx, f)
+			if err != nil {
+				break
+			}
+		}
+		return err
+	})
 }
 
 // Redo rolls back the most recently applied migration, then runs it again.
 func (m *Handle) Redo(ctx context.Context) error {
-	err := m.Migrate(ctx, -1)
-	if err != nil {
-		return err
-	}
-	return m.Migrate(ctx, +1)
+	return m.locking(ctx, func() error {
+		err := m.Migrate(ctx, -1)
+		if err != nil {
+			return err
+		}
+		return m.Migrate(ctx, +1)
+	})
 }
 
 // Reset runs the Down and Up migration function.
 func (m *Handle) Reset(ctx context.Context) error {
-	err := m.Down(ctx)
-	if err != nil {
-		return err
-	}
-	return m.Up(ctx)
+	return m.locking(ctx, func() error {
+		err := m.Down(ctx)
+		if err != nil {
+			return err
+		}
+		return m.Up(ctx)
+	})
 }
 
 // Migrate applies relative +n/-n migrations.
 func (m *Handle) Migrate(ctx context.Context, relativeN int) error {
-	// TODO: add Lock/Unlock methods to Driver interface
-	// for now it's not safe for concurrent execution
-	files, versions, err := m.readMigrationFilesAndGetVersions()
-	if err != nil {
-		return err
-	}
-
-	applyMigrationFiles, err := files.Relative(relativeN, versions)
-	if err != nil {
-		return err
-	}
-
-	for _, f := range applyMigrationFiles {
-		err = m.drvMigrate(ctx, f)
+	return m.locking(ctx, func() error {
+		files, versions, err := m.readMigrationFilesAndGetVersions()
 		if err != nil {
-			break
+			return err
 		}
-	}
-	return err
+
+		applyMigrationFiles, err := files.Relative(relativeN, versions)
+		if err != nil {
+			return err
+		}
+
+		for _, f := range applyMigrationFiles {
+			err = m.drvMigrate(ctx, f)
+			if err != nil {
+				break
+			}
+		}
+		return err
+	})
 }
 
 // Version returns the current migration version.
-func (m *Handle) Version() (version file.Version, err error) {
+func (m *Handle) Version(ctx context.Context) (version file.Version, err error) {
+	unlock, err := m.lock(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer unlock()
 	return m.drv.Version()
 }
 
 // Versions returns applied versions.
-func (m *Handle) Versions() (versions file.Versions, err error) {
+func (m *Handle) Versions(ctx context.Context) (versions file.Versions, err error) {
+	unlock, err := m.lock(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer unlock()
 	return m.drv.Versions()
 }
 
 // PendingMigrations returns list of pending migration files
-func (m *Handle) PendingMigrations() (file.Files, error) {
+func (m *Handle) PendingMigrations(ctx context.Context) (file.Files, error) {
+	unlock, err := m.lock(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer unlock()
 	files, versions, err := m.readMigrationFilesAndGetVersions()
 	if err != nil {
 		return nil, err
@@ -181,6 +206,55 @@ func (m *Handle) Create(name string) (*file.MigrationFile, error) {
 // Close database connection
 func (m *Handle) Close() error {
 	return m.drv.Close()
+}
+
+func drvLockChan(drv driver.Driver) <-chan error {
+	ret := make(chan error)
+	go func() {
+		if err := driver.Lock(drv); err != nil {
+			ret <- err
+		}
+		close(ret)
+	}()
+	return ret
+}
+
+func (m *Handle) lock(ctx context.Context) (unlock func(), err error) {
+	if m.fatalErr != nil {
+		return nil, m.fatalErr
+	}
+	if m.locked {
+		return func() {}, nil
+	}
+	select {
+	case err := <-drvLockChan(m.drv):
+		if err != nil {
+			return nil, err
+		}
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	m.locked = true
+	return m.unlock, nil
+}
+
+func (m *Handle) unlock() {
+	err := driver.Unlock(m.drv)
+	if err == nil {
+		m.locked = false
+		return
+	}
+	m.Close()
+	m.fatalErr = fmt.Errorf("connection closed, this handle is no longer usable - failed to unlock database after last session: %s", err)
+}
+
+func (m *Handle) locking(ctx context.Context, f func() error) error {
+	unlock, err := m.lock(ctx)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	return f()
 }
 
 func (m *Handle) drvMigrate(ctx context.Context, f file.File) error {

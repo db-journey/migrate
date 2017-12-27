@@ -33,6 +33,7 @@ func TestCreate(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		defer os.Remove(tmpdir)
 
 		file1, err := Create(driverUrl, tmpdir, "test_migration")
 		if err != nil {
@@ -64,16 +65,18 @@ func TestCreate(t *testing.T) {
 		if file1.Version == file2.Version {
 			t.Errorf("files can't same version: %d", file1.Version)
 		}
+		ensureClean(t, tmpdir, driverUrl)
 	}
 }
 
 func TestReset(t *testing.T) {
 	for _, driverUrl := range driverUrls {
 		t.Logf("Test driver: %s", driverUrl)
-		tmpdir, err := ioutil.TempDir("/", "migrate-test")
+		tmpdir, err := ioutil.TempDir("/tmp", "migrate-test")
 		if err != nil {
 			t.Fatal(err)
 		}
+		defer os.Remove(tmpdir)
 
 		_, err = Create(driverUrl, tmpdir, "migration1")
 		if err != nil {
@@ -98,10 +101,7 @@ func TestReset(t *testing.T) {
 			t.Fatalf("Expected version %d, got %v", file.Version, version)
 		}
 
-		err = Down(driverUrl, tmpdir)
-		if err != nil {
-			t.Fatal(err)
-		}
+		ensureClean(t, tmpdir, driverUrl)
 	}
 }
 
@@ -112,6 +112,7 @@ func TestDown(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		defer os.Remove(tmpdir)
 
 		Create(driverUrl, tmpdir, "migration1")
 		file, _ := Create(driverUrl, tmpdir, "migration2")
@@ -149,6 +150,7 @@ func TestUp(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		defer os.Remove(tmpdir)
 
 		Create(driverUrl, tmpdir, "migration1")
 		file, _ := Create(driverUrl, tmpdir, "migration2")
@@ -177,10 +179,7 @@ func TestUp(t *testing.T) {
 			t.Fatalf("Expected version %d, got %v", file.Version, version)
 		}
 
-		err = Down(driverUrl, tmpdir)
-		if err != nil {
-			t.Fatal(err)
-		}
+		ensureClean(t, tmpdir, driverUrl)
 	}
 }
 
@@ -191,6 +190,7 @@ func TestRedo(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		defer os.Remove(tmpdir)
 
 		Create(driverUrl, tmpdir, "migration1")
 		file, _ := Create(driverUrl, tmpdir, "migration2")
@@ -218,9 +218,7 @@ func TestRedo(t *testing.T) {
 		if version != file.Version {
 			t.Fatalf("Expected version %d, got %v", file.Version, version)
 		}
-		if err := Down(driverUrl, tmpdir); err != nil {
-			t.Fatal(err)
-		}
+		ensureClean(t, tmpdir, driverUrl)
 	}
 }
 
@@ -231,6 +229,7 @@ func TestMigrate(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		defer os.Remove(tmpdir)
 
 		file1, err := Create(driverUrl, tmpdir, "migration1")
 		if err != nil {
@@ -304,6 +303,20 @@ func TestMigrate(t *testing.T) {
 			t.Errorf("Expected versions to be: %v, got: %v", expectedVersions, versions)
 		}
 
+		ensureClean(t, tmpdir, driverUrl)
+	}
+}
+
+func ensureClean(t *testing.T, tmpdir, driverUrl string) {
+	if err := Down(driverUrl, tmpdir); err != nil {
+		t.Fatal(err)
+	}
+	version, err := Version(driverUrl, tmpdir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if version != 0 {
+		t.Fatalf("Expected version 0, got %v", version)
 	}
 }
 
@@ -335,5 +348,8 @@ func createOldMigrationFile(url, migrationsPath string) error {
 	}
 
 	err = ioutil.WriteFile(path.Join(mfile.UpFile.Path, mfile.UpFile.FileName), mfile.UpFile.Content, 0644)
-	return err
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(path.Join(mfile.DownFile.Path, mfile.DownFile.FileName), mfile.DownFile.Content, 0644)
 }

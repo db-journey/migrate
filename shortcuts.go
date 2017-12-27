@@ -8,8 +8,9 @@ import (
 	"github.com/db-journey/migrate/file"
 )
 
-// XXX: funcs below are unnecessary code duplication
-// also, handling os signals is a responsibility of CLI, not this library.
+// NOTE: funcs below are reconstruction of original package API.
+// Presumably should be deprecated and removed later.
+// Also, handling os signals is a responsibility of CLI, not this library.
 
 // Up applies all available migrations.
 // Up is a shortcut for Handle.Up
@@ -18,7 +19,7 @@ func Up(url, migrationsPath string) error {
 	if err != nil {
 		return err
 	}
-	defer m.Close()
+
 	return m.Up(newOsInterruptCtx())
 }
 
@@ -29,7 +30,7 @@ func Down(url, migrationsPath string) error {
 	if err != nil {
 		return err
 	}
-	defer m.Close()
+
 	return m.Down(newOsInterruptCtx())
 }
 
@@ -40,7 +41,7 @@ func Redo(url, migrationsPath string) error {
 	if err != nil {
 		return err
 	}
-	defer m.Close()
+
 	return m.Redo(newOsInterruptCtx())
 }
 
@@ -51,7 +52,7 @@ func Reset(url, migrationsPath string) error {
 	if err != nil {
 		return err
 	}
-	defer m.Close()
+
 	return m.Reset(newOsInterruptCtx())
 }
 
@@ -62,7 +63,7 @@ func Migrate(url, migrationsPath string, relativeN int) error {
 	if err != nil {
 		return err
 	}
-	defer m.Close()
+
 	return m.Migrate(newOsInterruptCtx(), relativeN)
 }
 
@@ -73,8 +74,8 @@ func Version(url, migrationsPath string) (file.Version, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer m.Close()
-	return m.Version()
+
+	return m.Version(newOsInterruptCtx())
 }
 
 // Versions returns applied versions.
@@ -84,8 +85,8 @@ func Versions(url, migrationsPath string) (file.Versions, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer m.Close()
-	return m.Versions()
+
+	return m.Versions(newOsInterruptCtx())
 }
 
 // PendingMigrations returns list of pending migration files
@@ -95,8 +96,8 @@ func PendingMigrations(url, migrationsPath string) (file.Files, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer m.Close()
-	return m.PendingMigrations()
+
+	return m.PendingMigrations(newOsInterruptCtx())
 }
 
 // Create applies relative +n/-n migrations.
@@ -106,7 +107,7 @@ func Create(url, migrationsPath, name string) (*file.MigrationFile, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer m.Close()
+
 	return m.Create(name)
 }
 
