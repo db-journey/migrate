@@ -24,10 +24,6 @@ type Driver interface {
 	// The returned string must not begin with a dot.
 	FilenameExtension() string
 
-	// FileTemplate returns content that will be inserted
-	// into newly created migration source file.
-	FileTemplate() []byte
-
 	// Migrate is the heart of the driver.
 	// It will receive a file which the driver should apply
 	// to its backend or whatever. The migration function should use
@@ -53,6 +49,14 @@ type Lockable interface {
 	Unlock() error
 }
 
+// FileTemplater can be optionally implemented to
+// fill newly created migration files with something useful.
+type FileTemplater interface {
+	// FileTemplate returns content that should be written
+	// into newly-created migration file.
+	FileTemplate() []byte
+}
+
 // Lock calls Lock method if driver implements Lockable
 func Lock(d Driver) error {
 	if d, ok := d.(Lockable); ok {
@@ -69,6 +73,16 @@ func Unlock(d Driver) error {
 	return nil
 }
 
+// FileTemplate returns migration file template
+// for given driver if it implements FileTemplater
+// or empty slice otherwise.
+func FileTemplate(d Driver) []byte {
+	if d, ok := d.(FileTemplater); ok {
+		return d.FileTemplate()
+	}
+	return []byte{}
+}
+
 // New returns Driver and calls Initialize on it.
 func New(url string) (Driver, error) {
 	u, err := neturl.Parse(url)
@@ -78,7 +92,7 @@ func New(url string) (Driver, error) {
 
 	d := GetDriver(u.Scheme)
 	if d == nil {
-		return nil, fmt.Errorf("Driver '%s' not found.", u.Scheme)
+		return nil, fmt.Errorf("driver '%s' not found", u.Scheme)
 	}
 	verifyFilenameExtension(u.Scheme, d)
 	if err := d.Initialize(url); err != nil {

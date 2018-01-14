@@ -214,14 +214,14 @@ func (m *Handle) Create(name string) (*file.MigrationFile, error) {
 			Path:      m.migrationsPath,
 			FileName:  fmt.Sprintf(filenamef, version, name, "up", m.drv.FilenameExtension()),
 			Name:      name,
-			Content:   m.drv.FileTemplate(),
+			Content:   driver.FileTemplate(m.drv),
 			Direction: direction.Up,
 		},
 		DownFile: &file.File{
 			Path:      m.migrationsPath,
 			FileName:  fmt.Sprintf(filenamef, version, name, "down", m.drv.FilenameExtension()),
 			Name:      name,
-			Content:   m.drv.FileTemplate(),
+			Content:   driver.FileTemplate(m.drv),
 			Direction: direction.Down,
 		},
 	}
