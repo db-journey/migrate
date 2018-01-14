@@ -236,20 +236,50 @@ func (m *Handle) Create(name string) (*file.MigrationFile, error) {
 	return mfile, nil
 }
 
+// ApplyVersion applies specific version.
+func (m *Handle) ApplyVersion(ctx context.Context, version file.Version) error {
+	return m.migrateVersion(ctx, version, direction.Up)
+}
+
+// RollbackVersion runs `down` migration for specific version.
+func (m *Handle) RollbackVersion(ctx context.Context, version file.Version) error {
+	return m.migrateVersion(ctx, version, direction.Down)
+}
+
 // Close database connection
 func (m *Handle) Close() error {
 	return m.drv.Close()
 }
 
-func drvLockChan(drv driver.Driver) <-chan error {
-	ret := make(chan error)
-	go func() {
-		if err := driver.Lock(drv); err != nil {
-			ret <- err
+// migrateVersion runs up or down migration (depends on given direction)
+// for given version.
+func (m *Handle) migrateVersion(ctx context.Context, version file.Version, d direction.Direction) error {
+	if d != direction.Up && d != direction.Down {
+		return fmt.Errorf("invalid direction: %v", d)
+	}
+	return m.locking(ctx, func() error {
+		files, versions, err := m.readFilesAndGetVersions()
+		if err != nil {
+			return err
 		}
-		close(ret)
-	}()
-	return ret
+		if d == direction.Up && versions.Contains(version) {
+			return fmt.Errorf("version %d is already applied", version)
+		}
+		if d == direction.Down && !versions.Contains(version) {
+			return fmt.Errorf("version %d is not applied", version)
+		}
+		var migration *file.File
+		for _, f := range files {
+			if f.Version == version {
+				if migration = getFileForDirection(f, d); migration != nil {
+					return m.drvMigrate(ctx, *migration)
+				}
+				break
+			}
+		}
+		// XXX: for some reason govet complains about Direction, so .String() is explicit
+		return fmt.Errorf("no `%s` migration file for version %d", d.String(), version)
+	})
 }
 
 func (m *Handle) lock(ctx context.Context) (unlock func(), err error) {
@@ -327,4 +357,22 @@ func runHookIfNotNil(hook func(f file.File) error, name string, f file.File) err
 		return fmt.Errorf("%s-hook for migration %q failed: %s", name, f.FileName, err)
 	}
 	return nil
+}
+
+func getFileForDirection(m file.MigrationFile, d direction.Direction) *file.File {
+	if d == direction.Up {
+		return m.UpFile
+	}
+	return m.DownFile
+}
+
+func drvLockChan(drv driver.Driver) <-chan error {
+	ret := make(chan error)
+	go func() {
+		if err := driver.Lock(drv); err != nil {
+			ret <- err
+		}
+		close(ret)
+	}()
+	return ret
 }
