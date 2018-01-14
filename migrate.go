@@ -67,7 +67,7 @@ func New(drv driver.Driver, migrationsPath string, opts ...Option) (*Handle, err
 // Up applies all available migrations.
 func (m *Handle) Up(ctx context.Context) error {
 	return m.locking(ctx, func() error {
-		files, versions, err := m.readMigrationFilesAndGetVersions()
+		files, versions, err := m.readFilesAndGetVersions()
 		if err != nil {
 			return err
 		}
@@ -88,7 +88,7 @@ func (m *Handle) Up(ctx context.Context) error {
 // Down rolls back all migrations.
 func (m *Handle) Down(ctx context.Context) error {
 	return m.locking(ctx, func() error {
-		files, versions, err := m.readMigrationFilesAndGetVersions()
+		files, versions, err := m.readFilesAndGetVersions()
 		if err != nil {
 			return err
 		}
@@ -132,7 +132,7 @@ func (m *Handle) Reset(ctx context.Context) error {
 // Migrate applies relative +n/-n migrations.
 func (m *Handle) Migrate(ctx context.Context, relativeN int) error {
 	return m.locking(ctx, func() error {
-		files, versions, err := m.readMigrationFilesAndGetVersions()
+		files, versions, err := m.readFilesAndGetVersions()
 		if err != nil {
 			return err
 		}
@@ -179,7 +179,7 @@ func (m *Handle) PendingMigrations(ctx context.Context) (file.Files, error) {
 		return nil, err
 	}
 	defer unlock()
-	files, versions, err := m.readMigrationFilesAndGetVersions()
+	files, versions, err := m.readFilesAndGetVersions()
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +188,7 @@ func (m *Handle) PendingMigrations(ctx context.Context) (file.Files, error) {
 
 // Create creates new migration files on disk.
 func (m *Handle) Create(name string) (*file.MigrationFile, error) {
-	files, _, err := m.readMigrationFilesAndGetVersions()
+	files, _, err := m.readFilesAndGetVersions()
 	if err != nil {
 		return nil, err
 	}
@@ -307,9 +307,9 @@ func (m *Handle) drvMigrate(ctx context.Context, f file.File) error {
 	}
 }
 
-// initDriverAndReadMigrationFilesAndGetVersionsAndGetVersion is a small helper
+// readFilesAndGetVersions is a small helper
 // function that is common to most of the migration funcs.
-func (m *Handle) readMigrationFilesAndGetVersions() (file.MigrationFiles, file.Versions, error) {
+func (m *Handle) readFilesAndGetVersions() (file.MigrationFiles, file.Versions, error) {
 	files, err := file.ReadMigrationFiles(m.migrationsPath, file.FilenameRegex(m.drv.FilenameExtension()))
 	if err != nil {
 		return nil, file.Versions{}, err
