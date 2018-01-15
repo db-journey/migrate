@@ -19,6 +19,7 @@ func Up(url, migrationsPath string) error {
 	if err != nil {
 		return err
 	}
+	defer m.Close()
 
 	return m.Up(newOsInterruptCtx())
 }
@@ -30,7 +31,7 @@ func Down(url, migrationsPath string) error {
 	if err != nil {
 		return err
 	}
-
+	defer m.Close()
 	return m.Down(newOsInterruptCtx())
 }
 
@@ -41,6 +42,7 @@ func Redo(url, migrationsPath string) error {
 	if err != nil {
 		return err
 	}
+	defer m.Close()
 
 	return m.Redo(newOsInterruptCtx())
 }
@@ -52,6 +54,7 @@ func Reset(url, migrationsPath string) error {
 	if err != nil {
 		return err
 	}
+	defer m.Close()
 
 	return m.Reset(newOsInterruptCtx())
 }
@@ -63,6 +66,7 @@ func Migrate(url, migrationsPath string, relativeN int) error {
 	if err != nil {
 		return err
 	}
+	defer m.Close()
 
 	return m.Migrate(newOsInterruptCtx(), relativeN)
 }
@@ -74,6 +78,7 @@ func Version(url, migrationsPath string) (file.Version, error) {
 	if err != nil {
 		return 0, err
 	}
+	defer m.Close()
 
 	return m.Version(newOsInterruptCtx())
 }
@@ -85,6 +90,7 @@ func Versions(url, migrationsPath string) (file.Versions, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer m.Close()
 
 	return m.Versions(newOsInterruptCtx())
 }
@@ -96,6 +102,7 @@ func PendingMigrations(url, migrationsPath string) (file.Files, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer m.Close()
 
 	return m.PendingMigrations(newOsInterruptCtx())
 }
@@ -107,7 +114,7 @@ func Create(url, migrationsPath, name string) (*file.MigrationFile, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	defer m.Close()
 	return m.Create(name)
 }
 
