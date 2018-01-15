@@ -329,18 +329,20 @@ func createOldMigrationFile(url, migrationsPath string) error {
 		return err
 	}
 
+	ext := driver.FileExtension(d)
+
 	mfile := &file.MigrationFile{
 		Version: version,
 		UpFile: &file.File{
 			Path:      migrationsPath,
-			FileName:  fmt.Sprintf(filenamef, version, name, "up", d.FilenameExtension()),
+			FileName:  fmt.Sprintf(filenamef, version, name, "up", ext),
 			Name:      name,
 			Content:   []byte(""),
 			Direction: direction.Up,
 		},
 		DownFile: &file.File{
 			Path:      migrationsPath,
-			FileName:  fmt.Sprintf(filenamef, version, name, "down", d.FilenameExtension()),
+			FileName:  fmt.Sprintf(filenamef, version, name, "down", ext),
 			Name:      name,
 			Content:   []byte(""),
 			Direction: direction.Down,

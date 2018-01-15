@@ -4,25 +4,16 @@ package driver
 import (
 	"fmt"
 	neturl "net/url" // alias to allow `url string` func signature in New
+	"reflect"
 
 	"github.com/db-journey/migrate/file"
 )
 
 // Driver is the interface type that needs to implemented by all drivers.
 type Driver interface {
-
-	// Initialize is the first function to be called.
-	// Check the url string and open and verify any connection
-	// that has to be made.
-	Initialize(url string) error
-
 	// Close is the last function to be called.
 	// Close any open connection here.
 	Close() error
-
-	// FilenameExtension returns the extension of the migration files.
-	// The returned string must not begin with a dot.
-	FilenameExtension() string
 
 	// Migrate is the heart of the driver.
 	// It will receive a file which the driver should apply
@@ -49,14 +40,6 @@ type Lockable interface {
 	Unlock() error
 }
 
-// FileTemplater can be optionally implemented to
-// fill newly created migration files with something useful.
-type FileTemplater interface {
-	// FileTemplate returns content that should be written
-	// into newly-created migration file.
-	FileTemplate() []byte
-}
-
 // Lock calls Lock method if driver implements Lockable
 func Lock(d Driver) error {
 	if d, ok := d.(Lockable); ok {
@@ -73,14 +56,22 @@ func Unlock(d Driver) error {
 	return nil
 }
 
-// FileTemplate returns migration file template
-// for given driver if it implements FileTemplater
-// or empty slice otherwise.
-func FileTemplate(d Driver) []byte {
-	if d, ok := d.(FileTemplater); ok {
-		return d.FileTemplate()
+// FileExtension returns extension of migration file for given driver.
+// Panics if you provide instance of unregistered driver.
+func FileExtension(d Driver) string {
+	if d, ok := driversPkg[reflect.TypeOf(d).Elem().PkgPath()]; ok {
+		return d.fileExtension
 	}
-	return []byte{}
+	panic(fmt.Sprintf("unregistered driver instance: %#v (%s)", d, reflect.TypeOf(d).Elem().PkgPath()))
+}
+
+// FileTemplate returns initial content of migration file for given driver.
+// Panics if you provide instance of unregistered driver.
+func FileTemplate(d Driver) []byte {
+	if d, ok := driversPkg[reflect.TypeOf(d).Elem().PkgPath()]; ok {
+		return d.fileTemplate
+	}
+	panic(fmt.Sprintf("unregistered driver instance: %#v (%s)", d, reflect.TypeOf(d).Elem().PkgPath()))
 }
 
 // New returns Driver and calls Initialize on it.
@@ -90,26 +81,9 @@ func New(url string) (Driver, error) {
 		return nil, err
 	}
 
-	d := GetDriver(u.Scheme)
-	if d == nil {
+	drv := getDriver(u.Scheme)
+	if drv == nil {
 		return nil, fmt.Errorf("driver '%s' not found", u.Scheme)
 	}
-	verifyFilenameExtension(u.Scheme, d)
-	if err := d.Initialize(url); err != nil {
-		return nil, err
-	}
-
-	return d, nil
-}
-
-// verifyFilenameExtension panics if the driver's filename extension
-// is not correct or empty.
-func verifyFilenameExtension(driverName string, d Driver) {
-	f := d.FilenameExtension()
-	if f == "" {
-		panic(fmt.Sprintf("%s.FilenameExtension() returns empty string.", driverName))
-	}
-	if f[0:1] == "." {
-		panic(fmt.Sprintf("%s.FilenameExtension() returned string must not start with a dot.", driverName))
-	}
+	return drv.new(url)
 }

@@ -212,14 +212,14 @@ func (m *Handle) Create(name string) (*file.MigrationFile, error) {
 		Version: version,
 		UpFile: &file.File{
 			Path:      m.migrationsPath,
-			FileName:  fmt.Sprintf(filenamef, version, name, "up", m.drv.FilenameExtension()),
+			FileName:  fmt.Sprintf(filenamef, version, name, "up", driver.FileExtension(m.drv)),
 			Name:      name,
 			Content:   driver.FileTemplate(m.drv),
 			Direction: direction.Up,
 		},
 		DownFile: &file.File{
 			Path:      m.migrationsPath,
-			FileName:  fmt.Sprintf(filenamef, version, name, "down", m.drv.FilenameExtension()),
+			FileName:  fmt.Sprintf(filenamef, version, name, "down", driver.FileExtension(m.drv)),
 			Name:      name,
 			Content:   driver.FileTemplate(m.drv),
 			Direction: direction.Down,
@@ -340,7 +340,7 @@ func (m *Handle) drvMigrate(ctx context.Context, f file.File) error {
 // readFilesAndGetVersions is a small helper
 // function that is common to most of the migration funcs.
 func (m *Handle) readFilesAndGetVersions() (file.MigrationFiles, file.Versions, error) {
-	files, err := file.ReadMigrationFiles(m.migrationsPath, file.FilenameRegex(m.drv.FilenameExtension()))
+	files, err := file.ReadMigrationFiles(m.migrationsPath, file.FilenameRegex(driver.FileExtension(m.drv)))
 	if err != nil {
 		return nil, file.Versions{}, err
 	}
