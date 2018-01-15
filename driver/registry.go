@@ -2,7 +2,8 @@ package driver
 
 import (
 	"fmt"
-	"reflect"
+	"regexp"
+	"runtime"
 	"sort"
 	"sync"
 )
@@ -11,17 +12,11 @@ var driversMu sync.Mutex
 var drivers = make(map[string]*drv)
 var driversPkg = make(map[string]*drv) // maps driver's package path to driver
 
-// Factory produces Driver instances.
-// Besides it's natural, it's also IMPORTANT
-// to keep implementation of Factory in the same package
-// as implementation of Driver (some magic involved)
-type Factory interface {
-	New(url string) (Driver, error)
-}
+// FactoryFunc produces driver instances
+type FactoryFunc func(url string) (Driver, error)
 
 type drv struct {
-	// new is a Factory.New
-	new           func(string) (Driver, error)
+	new           FactoryFunc
 	fileExtension string
 	fileTemplate  []byte
 
@@ -34,7 +29,7 @@ type drv struct {
 // filenameExtension returns the extension of the migration files.
 // migrationFileTemplate is a content that should be written
 // into newly-created migration file (can be nil).
-func Register(driverName, migrationFileExtension string, migrationFileTemplate []byte, f Factory) {
+func Register(driverName, migrationFileExtension string, migrationFileTemplate []byte, f FactoryFunc) {
 	migrationFileExtension = normalizeFilenameExtension(migrationFileExtension, driverName)
 	driversMu.Lock()
 	defer driversMu.Unlock()
@@ -45,10 +40,10 @@ func Register(driverName, migrationFileExtension string, migrationFileTemplate [
 		panic("driver: Register called twice for f " + driverName)
 	}
 	ndrv := &drv{
-		new:           f.New,
+		new:           f,
 		fileExtension: migrationFileExtension,
 		fileTemplate:  migrationFileTemplate,
-		pkg:           reflect.TypeOf(f).PkgPath(), // we need this in order to find driver by instance
+		pkg:           callerPkg(driverName), // we need this in order to find driver by instance
 	}
 	drivers[driverName] = ndrv
 	driversPkg[ndrv.pkg] = ndrv
@@ -84,4 +79,24 @@ func normalizeFilenameExtension(ext, driverName string) string {
 		panic(fmt.Sprintf("%s migrationFileExtension is empty string", driverName))
 	}
 	return ext
+}
+
+var callerPkgRegex = regexp.MustCompile(`^(.*)\.\w+\.\d+$`)
+
+func callerPkg(driverName string) string {
+	fpcs := make([]uintptr, 1)
+	n := runtime.Callers(3, fpcs)
+	if n == 0 {
+		panic("failed to determine package of driver " + driverName)
+	}
+
+	fun := runtime.FuncForPC(fpcs[0] - 1)
+	if fun == nil {
+		panic("failed to determine package of driver " + driverName)
+	}
+	sbm := callerPkgRegex.FindStringSubmatch(fun.Name())
+	if len(sbm) < 2 {
+		panic("failed to determine package of driver " + driverName)
+	}
+	return sbm[1]
 }
