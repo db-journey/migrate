@@ -14,8 +14,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"text/template"
 
-	"github.com/alecthomas/template"
 	"github.com/db-journey/migrate/direction"
 )
 
