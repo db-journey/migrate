@@ -1,5 +1,20 @@
 # Migrate Changelog
 
+## 2.0.0
+
+All credits go to @josephbuchma
+
+- Removed all "async" stuff.
+- Added type for encapsulating migrations functionality for greater flexibility and performance.
+- Changed driver registration and initialization approach, fixed #5
+   - Removed `Initialize` method from Driver interface
+   - Removed `FlenameExtension` from Driver interface
+- Added driver.Locker interface, which can be optionally implemented to enable locking during migraitons.
+   - Implemented for mysql driver
+- Migrate now receives context.Context, and therefore can be cancelled.
+- Added option to attach pre/post hooks for migrations.
+- Added methods for applying / rolling back specific version.
+
 ## 1.5.0
 
 - Add templating support in migration files
