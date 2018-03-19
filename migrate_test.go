@@ -1,6 +1,7 @@
 package migrate
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -28,6 +29,7 @@ var driverUrls = []string{
 
 func TestCreate(t *testing.T) {
 	for _, driverUrl := range driverUrls {
+		ctx := context.Background()
 		t.Logf("Test driver: %s", driverUrl)
 		tmpdir, err := ioutil.TempDir("/tmp", "migrate-test")
 		if err != nil {
@@ -35,11 +37,16 @@ func TestCreate(t *testing.T) {
 		}
 		defer os.Remove(tmpdir)
 
-		file1, err := Create(driverUrl, tmpdir, "test_migration")
+		m, err := Open(driverUrl, tmpdir)
+		if err != nil {
+			t.Fatalf("Failed to initialize Handle: %s", err)
+		}
+
+		file1, err := m.Create("test_migration")
 		if err != nil {
 			t.Fatal(err)
 		}
-		file2, err := Create(driverUrl, tmpdir, "another migration")
+		file2, err := m.Create("another migration")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -65,7 +72,7 @@ func TestCreate(t *testing.T) {
 		if file1.Version == file2.Version {
 			t.Errorf("files can't same version: %d", file1.Version)
 		}
-		ensureClean(t, tmpdir, driverUrl)
+		ensureClean(ctx, t, m)
 	}
 }
 
@@ -78,30 +85,36 @@ func TestReset(t *testing.T) {
 		}
 		defer os.Remove(tmpdir)
 
-		_, err = Create(driverUrl, tmpdir, "migration1")
+		ctx := context.Background()
+		m, err := Open(driverUrl, tmpdir)
+		if err != nil {
+			t.Fatalf("Failed to initialize Handle: %s", err)
+		}
+
+		_, err = m.Create("migration1")
 		if err != nil {
 			t.Fatal(err)
 		}
-		file, err := Create(driverUrl, tmpdir, "migration2")
+		file, err := m.Create("migration2")
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		err = Reset(driverUrl, tmpdir)
+		err = m.Reset(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
-		version, err := Version(driverUrl, tmpdir)
+		version, err := m.Version(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if version != file.Version {
-			versions, _ := Versions(driverUrl, tmpdir)
+			versions, _ := m.Versions(ctx)
 			t.Logf("Versions in db: %v", versions)
 			t.Fatalf("Expected version %d, got %v", file.Version, version)
 		}
 
-		ensureClean(t, tmpdir, driverUrl)
+		ensureClean(ctx, t, m)
 	}
 }
 
@@ -114,14 +127,20 @@ func TestDown(t *testing.T) {
 		}
 		defer os.Remove(tmpdir)
 
-		Create(driverUrl, tmpdir, "migration1")
-		file, _ := Create(driverUrl, tmpdir, "migration2")
+		ctx := context.Background()
+		m, err := Open(driverUrl, tmpdir)
+		if err != nil {
+			t.Fatalf("Failed to initialize Handle: %s", err)
+		}
 
-		err = Reset(driverUrl, tmpdir)
+		m.Create("migration1")
+		file, _ := m.Create("migration2")
+
+		err = m.Reset(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
-		version, err := Version(driverUrl, tmpdir)
+		version, err := m.Version(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -129,17 +148,18 @@ func TestDown(t *testing.T) {
 			t.Fatalf("Expected version %d, got %v", file.Version, version)
 		}
 
-		err = Down(driverUrl, tmpdir)
+		err = m.Down(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
-		version, err = Version(driverUrl, tmpdir)
+		version, err = m.Version(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if version != 0 {
 			t.Fatalf("Expected version 0, got %v", version)
 		}
+		ensureClean(ctx, t, m)
 	}
 }
 
@@ -152,14 +172,20 @@ func TestUp(t *testing.T) {
 		}
 		defer os.Remove(tmpdir)
 
-		Create(driverUrl, tmpdir, "migration1")
-		file, _ := Create(driverUrl, tmpdir, "migration2")
+		ctx := context.Background()
+		m, err := Open(driverUrl, tmpdir)
+		if err != nil {
+			t.Fatalf("Failed to initialize Handle: %s", err)
+		}
 
-		err = Down(driverUrl, tmpdir)
+		m.Create("migration1")
+		file, _ := m.Create("migration2")
+
+		err = m.Down(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
-		version, err := Version(driverUrl, tmpdir)
+		version, err := m.Version(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -167,11 +193,11 @@ func TestUp(t *testing.T) {
 			t.Fatalf("Expected version 0, got %v", version)
 		}
 
-		err = Up(driverUrl, tmpdir)
+		err = m.Up(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
-		version, err = Version(driverUrl, tmpdir)
+		version, err = m.Version(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -179,7 +205,7 @@ func TestUp(t *testing.T) {
 			t.Fatalf("Expected version %d, got %v", file.Version, version)
 		}
 
-		ensureClean(t, tmpdir, driverUrl)
+		ensureClean(ctx, t, m)
 	}
 }
 
@@ -192,14 +218,20 @@ func TestRedo(t *testing.T) {
 		}
 		defer os.Remove(tmpdir)
 
-		Create(driverUrl, tmpdir, "migration1")
-		file, _ := Create(driverUrl, tmpdir, "migration2")
+		ctx := context.Background()
+		m, err := Open(driverUrl, tmpdir)
+		if err != nil {
+			t.Fatalf("Failed to initialize Handle: %s", err)
+		}
 
-		err = Reset(driverUrl, tmpdir)
+		m.Create("migration1")
+		file, _ := m.Create("migration2")
+
+		err = m.Reset(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
-		version, err := Version(driverUrl, tmpdir)
+		version, err := m.Version(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -207,18 +239,18 @@ func TestRedo(t *testing.T) {
 			t.Fatalf("Expected version %d, got %v", file.Version, version)
 		}
 
-		err = Redo(driverUrl, tmpdir)
+		err = m.Redo(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
-		version, err = Version(driverUrl, tmpdir)
+		version, err = m.Version(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if version != file.Version {
 			t.Fatalf("Expected version %d, got %v", file.Version, version)
 		}
-		ensureClean(t, tmpdir, driverUrl)
+		ensureClean(ctx, t, m)
 	}
 }
 
@@ -231,21 +263,27 @@ func TestMigrate(t *testing.T) {
 		}
 		defer os.Remove(tmpdir)
 
-		file1, err := Create(driverUrl, tmpdir, "migration1")
+		ctx := context.Background()
+		m, err := Open(driverUrl, tmpdir)
+		if err != nil {
+			t.Fatalf("Failed to initialize Handle: %s", err)
+		}
+
+		file1, err := m.Create("migration1")
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		file2, err := Create(driverUrl, tmpdir, "migration2")
+		file2, err := m.Create("migration2")
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		err = Reset(driverUrl, tmpdir)
+		err = m.Reset(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
-		version, err := Version(driverUrl, tmpdir)
+		version, err := m.Version(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -253,25 +291,25 @@ func TestMigrate(t *testing.T) {
 			t.Fatalf("Expected version %d, got %v", file2.Version, version)
 		}
 
-		err = Migrate(driverUrl, tmpdir, -2)
+		err = m.Migrate(ctx, -2)
 		if err != nil {
 			t.Fatal(err)
 		}
-		version, err = Version(driverUrl, tmpdir)
+		version, err = m.Version(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if version != 0 {
-			versions, _ := Versions(driverUrl, tmpdir)
+			versions, _ := m.Versions(ctx)
 			t.Logf("Versions in db: %v", versions)
 			t.Fatalf("Expected version 0, got %v", version)
 		}
 
-		err = Migrate(driverUrl, tmpdir, +1)
+		err = m.Migrate(ctx, +1)
 		if err != nil {
 			t.Fatal(err)
 		}
-		version, err = Version(driverUrl, tmpdir)
+		version, err = m.Version(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -284,7 +322,7 @@ func TestMigrate(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		err = Up(driverUrl, tmpdir)
+		err = m.Up(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -294,7 +332,7 @@ func TestMigrate(t *testing.T) {
 			20060102150405,
 		}
 
-		versions, err := Versions(driverUrl, tmpdir)
+		versions, err := m.Versions(ctx)
 		if err != nil {
 			t.Errorf("Could not fetch versions: %s", err)
 		}
@@ -303,15 +341,15 @@ func TestMigrate(t *testing.T) {
 			t.Errorf("Expected versions to be: %v, got: %v", expectedVersions, versions)
 		}
 
-		ensureClean(t, tmpdir, driverUrl)
+		ensureClean(ctx, t, m)
 	}
 }
 
-func ensureClean(t *testing.T, tmpdir, driverUrl string) {
-	if err := Down(driverUrl, tmpdir); err != nil {
+func ensureClean(ctx context.Context, t *testing.T, m *Handle) {
+	if err := m.Down(ctx); err != nil {
 		t.Fatal(err)
 	}
-	version, err := Version(driverUrl, tmpdir)
+	version, err := m.Version(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
