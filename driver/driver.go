@@ -3,8 +3,8 @@ package driver
 
 import (
 	"fmt"
-	neturl "net/url" // alias to allow `url string` func signature in New
 	"reflect"
+	"regexp" // alias to allow `url string` func signature in New
 
 	"github.com/db-journey/migrate/file"
 )
@@ -76,14 +76,24 @@ func FileTemplate(d Driver) []byte {
 
 // New returns Driver and calls Initialize on it.
 func New(url string) (Driver, error) {
-	u, err := neturl.Parse(url)
-	if err != nil {
-		return nil, err
+	scheme := getScheme(url)
+	if scheme == "" {
+		return nil, fmt.Errorf("no scheme found in %q", url)
 	}
 
-	drv := getDriver(u.Scheme)
+	drv := getDriver(scheme)
 	if drv == nil {
-		return nil, fmt.Errorf("driver '%s' not found", u.Scheme)
+		return nil, fmt.Errorf("driver '%s' not found", scheme)
 	}
 	return drv.new(url)
+}
+
+// getScheme will get the scheme of a URL-like connection string
+func getScheme(url string) string {
+	re := regexp.MustCompile(`(?m)^(\w+)://`)
+	match := re.FindStringSubmatch(url)
+	if len(match) < 2 {
+		return ""
+	}
+	return match[1]
 }
