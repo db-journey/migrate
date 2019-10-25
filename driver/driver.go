@@ -4,7 +4,7 @@ package driver
 import (
 	"fmt"
 	"reflect"
-	"regexp" // alias to allow `url string` func signature in New
+	"regexp"
 
 	"github.com/db-journey/migrate/file"
 )
