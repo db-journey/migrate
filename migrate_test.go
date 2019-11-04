@@ -8,6 +8,7 @@ import (
 	"path"
 	"reflect"
 	"testing"
+
 	// Ensure imports for each driver we wish to test
 
 	_ "github.com/db-journey/cassandra-driver"

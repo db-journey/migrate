@@ -20,6 +20,7 @@ postgres:
   image: postgres
 mysql:
   image: mysql
+  command: --default-authentication-plugin=mysql_native_password
   environment:
     MYSQL_DATABASE: migratetest
     MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
