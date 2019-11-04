@@ -1,5 +1,9 @@
 # Migrate Changelog
 
+## 2.0.1 - 2019-11-04
+
+- Fix compilation for go >=1.11 (#9)
+
 ## 2.0.0
 
 All credits go to @josephbuchma
