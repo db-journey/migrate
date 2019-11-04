@@ -1,5 +1,13 @@
 # Migrate Changelog
 
+## 2.0.2 - 2019-11-04
+
+- Add support for go modules
+
+## 2.0.1 - 2019-11-04
+
+- Fix compilation for go >=1.11 (#9)
+
 ## 2.0.1 - 2019-11-04
 
 - Fix compilation for go >=1.11 (#9)
