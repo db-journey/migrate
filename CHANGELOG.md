@@ -1,5 +1,9 @@
 # Migrate Changelog
 
+## 2.0.3 - 2019-11-27
+
+- Publish v2 of Go module
+
 ## 2.0.2 - 2019-11-04
 
 - Add support for go modules

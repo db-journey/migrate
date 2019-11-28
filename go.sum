@@ -6,6 +6,7 @@ github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/db-journey/cassandra-driver v0.0.0-20190926171725-08ba6fd37055 h1:POjSOiB9KeMmgnyfReJNTBaJtUPLPXYWqAtmlFelRGg=
 github.com/db-journey/cassandra-driver v0.0.0-20190926171725-08ba6fd37055/go.mod h1:8Oir+CvqXq+2AMztpGbalVC2UlOOG3p/Nykg3m64o04=
+github.com/db-journey/migrate v2.0.0+incompatible h1:heh263YgHne8Fp+XvgDf427MjfB4jV1W19O+7vqU3pU=
 github.com/db-journey/migrate v2.0.0+incompatible/go.mod h1:mJTA43EQJ94pqUpLXH0qsTgn7OnO56iLy2q5ywaYUy4=
 github.com/db-journey/mysql-driver v0.0.0-20190914135739-ff1e682e55d1 h1:P6snQ1jNIUxMLC9ABzAKKbmZWgQxW+oquMipE64HLE4=
 github.com/db-journey/mysql-driver v0.0.0-20190914135739-ff1e682e55d1/go.mod h1:r/f+plel3B1S9Qv5Cc1OQesraRpHwagRaw8LE0cWc7k=
