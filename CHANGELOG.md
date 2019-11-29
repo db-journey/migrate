@@ -1,5 +1,10 @@
 # Migrate Changelog
 
+## 2.0.4 - 2019-11-29
+
+- Use v2 by default
+
+
 ## 2.0.3 - 2019-11-27
 
 - Publish v2 of Go module

@@ -16,7 +16,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/db-journey/migrate/direction"
+	"github.com/db-journey/migrate/v2/direction"
 )
 
 var filenameRegex = `^([0-9]+)_(.*)\.(up|down)\.%s(?:\.tpl)?$`

@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/db-journey/migrate/direction"
-	"github.com/db-journey/migrate/driver"
-	"github.com/db-journey/migrate/file"
+	"github.com/db-journey/migrate/v2/direction"
+	"github.com/db-journey/migrate/v2/driver"
+	"github.com/db-journey/migrate/v2/file"
 )
 
 // Option for New

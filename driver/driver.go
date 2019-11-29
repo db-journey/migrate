@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"regexp"
 
-	"github.com/db-journey/migrate/file"
+	"github.com/db-journey/migrate/v2/file"
 )
 
 // Driver is the interface type that needs to implemented by all drivers.

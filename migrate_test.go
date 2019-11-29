@@ -12,9 +12,9 @@ import (
 	// Ensure imports for each driver we wish to test
 
 	_ "github.com/db-journey/cassandra-driver"
-	"github.com/db-journey/migrate/direction"
-	"github.com/db-journey/migrate/driver"
-	"github.com/db-journey/migrate/file"
+	"github.com/db-journey/migrate/v2/direction"
+	"github.com/db-journey/migrate/v2/driver"
+	"github.com/db-journey/migrate/v2/file"
 	_ "github.com/db-journey/mysql-driver"
 	_ "github.com/db-journey/postgresql-driver"
 	_ "github.com/db-journey/sqlite3-driver"
