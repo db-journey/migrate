@@ -1,5 +1,9 @@
 # Migrate Changelog
 
+## 2.0.5 - 2019-12-12
+
+- Update dependencies
+
 ## 2.0.4 - 2019-11-29
 
 - Use v2 by default
