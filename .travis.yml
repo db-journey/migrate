@@ -2,8 +2,8 @@ language: go
 sudo: required
 
 go:
-  - 1.12
-  - 1.13
+  - stable
+  - master
 
 go_import_path: github.com/db-journey/migrate
 
