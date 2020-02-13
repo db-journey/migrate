@@ -1,0 +1,15 @@
+go: &go
+  image: golang
+  working_dir: /go/src/github.com/db-journey/mysql-driver
+  volumes:
+    - $GOPATH:/go
+go-test:
+  <<: *go
+  command: sh -c 'go get -t -v ./... && go test -p=1 -v ./...'
+  links:
+    - mysql
+mysql:
+  image: mysql
+  environment:
+    MYSQL_DATABASE: migratetest
+    MYSQL_ALLOW_EMPTY_PASSWORD: "yes"

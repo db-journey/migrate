@@ -1,8 +1,8 @@
 go: &go
   image: golang
-  working_dir: /go/src/github.com/db-journey/migrate
+  working_dir: /go/migrate
   volumes:
-    - $GOPATH:/go
+    - $PWD:/go/migrate
 go-test:
   <<: *go
   command: sh -c 'go get -t -v ./... && go test -p=1 -v ./...'
