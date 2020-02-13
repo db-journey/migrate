@@ -13,6 +13,7 @@ before_install:
     - sed -i -e 's/golang/golang:'"$TRAVIS_GO_VERSION"'/' docker-compose.yml
 
 script:
+  - docker-compose create postgres mysql cassandra crate
   - docker-compose start postgres mysql cassandra crate
   - sleep 15
   - make test
