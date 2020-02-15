@@ -15,5 +15,5 @@ before_install:
 script:
   - docker-compose create postgres mysql cassandra crate
   - docker-compose start postgres mysql cassandra crate
-  - sleep 15
+  - sleep 30
   - make test
