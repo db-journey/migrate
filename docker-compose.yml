@@ -26,5 +26,8 @@ mysql:
     MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
 cassandra:
   image: cassandra:2.2
+  volumes:
+    - "./drivers/cassandra-driver/cassandra-init.sh:/cassandra-init.sh"
+  command: "sh /cassandra-init.sh"
 crate:
   image: crate
