@@ -16,7 +16,7 @@ import (
 func TestMigrate(t *testing.T) {
 	host := getenvDefault("POSTGRES_PORT_5432_TCP_ADDR", "localhost")
 	port := getenvDefault("POSTGRES_PORT_5432_TCP_PORT", "5432")
-	driverURL := "postgres://postgres:p@" + host + ":" + port + "/template1?sslmode=disable"
+	driverURL := "postgres://postgres:migrate@" + host + ":" + port + "/template1?sslmode=disable"
 
 	// prepare clean database
 	connection, err := sql.Open("postgres", driverURL)

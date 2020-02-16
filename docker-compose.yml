@@ -18,6 +18,8 @@ go-build:
     CGO_ENABLED: 1
 postgres:
   image: postgres
+  environment:
+    POSTGRES_PASSWORD: migrate
 mysql:
   image: mysql
   command: --default-authentication-plugin=mysql_native_password
