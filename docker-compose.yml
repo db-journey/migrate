@@ -1,8 +1,8 @@
 go: &go
   image: golang
-  working_dir: /go/src/github.com/db-journey/migrate
+  working_dir: /go/migrate
   volumes:
-    - $GOPATH:/go
+    - $PWD:/go/migrate
 go-test:
   <<: *go
   command: sh -c 'go get -t -v ./... && go test -p=1 -v ./...'
@@ -18,6 +18,8 @@ go-build:
     CGO_ENABLED: 1
 postgres:
   image: postgres
+  environment:
+    POSTGRES_PASSWORD: migrate
 mysql:
   image: mysql
   command: --default-authentication-plugin=mysql_native_password
@@ -26,5 +28,8 @@ mysql:
     MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
 cassandra:
   image: cassandra:2.2
+  volumes:
+    - "./drivers/cassandra-driver/cassandra-init.sh:/cassandra-init.sh"
+  command: "sh /cassandra-init.sh"
 crate:
   image: crate

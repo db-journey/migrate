@@ -11,20 +11,20 @@ import (
 
 	// Ensure imports for each driver we wish to test
 
-	_ "github.com/db-journey/cassandra-driver"
 	"github.com/db-journey/migrate/v2/direction"
 	"github.com/db-journey/migrate/v2/driver"
+	_ "github.com/db-journey/migrate/v2/drivers/cassandra-driver"
+	_ "github.com/db-journey/migrate/v2/drivers/mysql-driver"
+	_ "github.com/db-journey/migrate/v2/drivers/postgresql-driver"
+	_ "github.com/db-journey/migrate/v2/drivers/sqlite3-driver"
 	"github.com/db-journey/migrate/v2/file"
-	_ "github.com/db-journey/mysql-driver"
-	_ "github.com/db-journey/postgresql-driver"
-	_ "github.com/db-journey/sqlite3-driver"
 )
 
 // Add Driver URLs here to test basic Up, Down, .. functions.
 var driverUrls = []string{
-	//"postgres://postgres@" + os.Getenv("POSTGRES_PORT_5432_TCP_ADDR") + ":" + os.Getenv("POSTGRES_PORT_5432_TCP_PORT") + "/template1?sslmode=disable",
+	"postgres://postgres:migrate@" + os.Getenv("POSTGRES_PORT_5432_TCP_ADDR") + ":" + os.Getenv("POSTGRES_PORT_5432_TCP_PORT") + "/template1?sslmode=disable",
 	"mysql://root@tcp(" + os.Getenv("MYSQL_PORT_3306_TCP_ADDR") + ":" + os.Getenv("MYSQL_PORT_3306_TCP_PORT") + ")/migratetest",
-	// "cassandra://" + os.Getenv("CASSANDRA_PORT_9042_TCP_ADDR") + ":" + os.Getenv("CASSANDRA_PORT_9042_TCP_PORT") + "/migrate?protocol=4",
+	"cassandra://" + os.Getenv("CASSANDRA_PORT_9042_TCP_ADDR") + ":" + os.Getenv("CASSANDRA_PORT_9042_TCP_PORT") + "/migrate?protocol=4",
 	"sqlite3:///tmp/migrate.db",
 }
 

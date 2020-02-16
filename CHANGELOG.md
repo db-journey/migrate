@@ -1,5 +1,9 @@
 # Migrate Changelog
 
+## 2.1.0 - 2020-02-12
+
+- Merge drivers into this repo
+
 ## 2.0.5 - 2019-12-12
 
 - Update dependencies

@@ -1,0 +1,17 @@
+language: go
+sudo: required
+
+go:
+  - "1.11"
+  - "1.12"
+  - "1.13"
+
+go_import_path: github.com/db-journey/mysql-driver
+
+services:
+  - docker
+
+before_install:
+    - sed -i -e 's/golang/golang:'"$TRAVIS_GO_VERSION"'/' docker-compose.yml
+
+script: make test
