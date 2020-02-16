@@ -1,5 +1,9 @@
 # Migrate Changelog
 
+## 2.1.1 - 2020-02-16
+
+- Merge bash driver into this repo
+
 ## 2.1.0 - 2020-02-12
 
 - Merge drivers into this repo
